@@ -1,0 +1,1325 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+public/
+  favicon.svg
+src/
+  api/
+    auth.ts
+    client.ts
+    oders.ts
+    services.ts
+  components/
+    Navbar.tsx
+    ProtectedRoute.tsx
+    ServiceCard.tsx
+  context/
+    AuthContext.tsx
+  pages/
+    HomePage.tsx
+    LoginPage.tsx
+    MyOrdersPage.tsx
+    NotFoundPage.tsx
+    OrderingPage.tsx
+    RegisterPage.tsx
+    ServicesPage.tsx
+  types/
+    index.ts
+  App.css
+  App.tsx
+  index.css
+  main.tsx
+.env.example
+.gitignore
+.oxlintrc.json
+index.html
+package.json
+README.md
+tsconfig.app.json
+tsconfig.json
+tsconfig.node.json
+vite.config.ts
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="public/favicon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="46" viewBox="0 0 48 46"><rect width="48" height="46" rx="8" fill="#aa3bff"/></svg>
+</file>
+
+<file path="src/api/auth.ts">
+import { apiRequest } from './client'
+import type { AuthResponse, LoginPayload, RegisterPayload, User } from '../types'
+
+// Chỉnh lại endpoint (/auth/login, /auth/register, /auth/me) cho khớp với BE của bạn.
+
+export function login(payload: LoginPayload) {
+  return apiRequest<AuthResponse>('/auth/login', {
+    method: 'POST',
+    body: payload,
+    auth: false,
+  })
+}
+
+export function register(payload: RegisterPayload) {
+  return apiRequest<AuthResponse>('/auth/register', {
+    method: 'POST',
+    body: payload,
+    auth: false,
+  })
+}
+
+export function fetchCurrentUser() {
+  return apiRequest<User>('/auth/me')
+}
+</file>
+
+<file path="src/api/client.ts">
+// Lớp gọi API cơ bản, dùng chung cho mọi module (auth, services, bookings...).
+// Đặt URL của BE trong file .env: VITE_API_URL=http://localhost:8080/api
+
+// Sửa 'http://localhost:8080/api' thành 'http://localhost:8080/api/v1'
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api/v1'
+const TOKEN_KEY = 'car_wash_token'
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+interface RequestOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  body?: unknown
+  auth?: boolean // gắn Bearer token hay không, mặc định true
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { method = 'GET', body, auth = true } = options
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (auth) {
+    const token = getToken()
+    if (token) headers.Authorization = `Bearer ${token}`
+  }
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  })
+
+  // BE trả về 204 No Content cho vài action (vd: delete)
+  if (res.status === 204) {
+    return undefined as T
+  }
+
+  const data = await res.json().catch(() => null)
+
+  if (!res.ok) {
+    const message = data?.message ?? `Yêu cầu thất bại (mã lỗi ${res.status})`
+    throw new ApiError(res.status, message)
+  }
+
+  return data as T
+}
+</file>
+
+<file path="src/api/oders.ts">
+import { apiRequest } from './client'
+import type { Ordering, CreateOrderingPayload } from '../types'
+
+export function createOrdering(payload: CreateOrderingPayload) {
+  return apiRequest<Ordering>('/orders', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export function fetchMyOrderings() {
+  return apiRequest<Ordering[]>('/orders/me')
+}
+
+export function cancelOrdering(id: number) {
+  return apiRequest<void>(`/bookings/${id}`, { method: 'DELETE' })
+}
+</file>
+
+<file path="src/api/services.ts">
+import { apiRequest } from './client'
+import type { Service } from '../types'
+
+export function fetchServices() {
+  return apiRequest<Service[]>('/services', { auth: false })
+}
+
+export function fetchServiceById(id: number) {
+  return apiRequest<Service>(`/services/${id}`, { auth: false })
+}
+</file>
+
+<file path="src/components/Navbar.tsx">
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+
+export default function Navbar() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  // In thông tin user thực tế ra console F12 để kiểm tra tên trường chính xác
+  console.log('Thông tin user trong AuthContext:', user)
+
+  async function handleLogout() {
+    try {
+      await logout()
+      navigate('/login')
+    } catch (error) {
+      console.error('Lỗi khi đăng xuất:', error)
+    }
+  }
+
+  return (
+    <header className="navbar">
+      <Link to="/" className="navbar-brand">
+        🚗 Car Wash
+      </Link>
+      <nav className="navbar-links">
+        <Link to="/services">Dịch vụ</Link>
+        {user ? (
+          <>
+            <Link to="/my-orders">Lịch của tôi</Link>
+            <span className="navbar-user">
+              <strong>{user?.fullName || user?.name || user?.username || user?.email || 'Khách'}</strong>
+            </span>
+            <button type="button" onClick={handleLogout}>
+              Đăng xuất
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login">Đăng nhập</Link>
+            <Link to="/register">Đăng ký</Link>
+          </>
+        )}
+      </nav>
+    </header>
+  )
+}
+</file>
+
+<file path="src/components/ProtectedRoute.tsx">
+import type { ReactNode } from 'react'
+import { Navigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+
+export default function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth()
+
+  if (loading) return <p className="loading">Đang tải...</p>
+  if (!user) return <Navigate to="/login" replace />
+
+  return <>{children}</>
+}
+</file>
+
+<file path="src/components/ServiceCard.tsx">
+import { Link } from 'react-router-dom'
+import type { Service } from '../types'
+
+export default function ServiceCard({ service }: { service: Service }) {
+  return (
+    <div className="service-card">
+      {service.imageUrl && <img src={service.imageUrl} alt={service.name} />}
+      <h3>{service.name}</h3>
+      <p>{service.description}</p>
+      <div className="service-card-meta">
+       
+        <span>{(service.price ?? 0).toLocaleString('vi-VN')} VNĐ</span>
+        <span>{service.durationMinutes} phút</span>
+      </div>
+      <Link to={`/booking?serviceId=${service.id}`} className="btn-primary">
+        Đặt lịch
+      </Link>
+    </div>
+  )
+}
+</file>
+
+<file path="src/context/AuthContext.tsx">
+import { createContext, useContext, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import type { LoginPayload, RegisterPayload, User } from '../types'
+import * as authApi from '../api/auth'
+import { clearToken, getToken, setToken } from '../api/client'
+
+interface AuthContextValue {
+  user: User | null
+  loading: boolean
+  login: (payload: LoginPayload) => Promise<void>
+  register: (payload: RegisterPayload) => Promise<void>
+  logout: () => void
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const token = getToken()
+    if (!token) {
+      setLoading(false)
+      return
+    }
+    authApi
+      .fetchCurrentUser()
+      .then(setUser)
+      .catch(() => clearToken())
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function login(payload: LoginPayload) {
+    const res = await authApi.login(payload)
+    if (res.token) {
+      setToken(res.token) // 1. Lưu Token
+    }
+    // 2. Lấy User từ API /auth/me đã cấu hình ở BE
+    const me = await authApi.fetchCurrentUser() 
+    setUser(me)
+  }
+
+  async function register(payload: RegisterPayload) {
+    const res = await authApi.register(payload)
+    if (res.token) {
+      setToken(res.token)
+    }
+    const me = await authApi.fetchCurrentUser()
+    setUser(me)
+  }
+
+  function logout() {
+    clearToken()
+    setUser(null)
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth phải được dùng bên trong <AuthProvider>')
+  return ctx
+}
+</file>
+
+<file path="src/pages/HomePage.tsx">
+import { Link } from 'react-router-dom'
+
+export default function HomePage() {
+  return (
+    <section className="hero-section">
+      <h1>Rửa xe nhanh - sạch - tận nơi</h1>
+      <p>Đặt lịch rửa xe chỉ trong vài giây, theo dõi trạng thái đơn ngay trên web.</p>
+      <Link to="/services" className="btn-primary">
+        Xem dịch vụ
+      </Link>
+    </section>
+  )
+}
+</file>
+
+<file path="src/pages/LoginPage.tsx">
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+
+export default function LoginPage() {
+  const { login } = useAuth()
+  const navigate = useNavigate()
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setSubmitting(true)
+    try {
+      await login({ email, password })
+      navigate('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Đăng nhập thất bại')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <section className="form-section">
+      <h2>Đăng nhập</h2>
+      <form onSubmit={handleSubmit} className="form">
+        <label>
+          Email
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </label>
+        <label>
+          Mật khẩu
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </label>
+
+        {error && <p className="error">{error}</p>}
+
+        <button type="submit" className="btn-primary" disabled={submitting}>
+          {submitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
+        </button>
+      </form>
+      <p>
+        Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
+      </p>
+    </section>
+  )
+}
+</file>
+
+<file path="src/pages/MyOrdersPage.tsx">
+import { useEffect, useState } from 'react'
+import { cancelOrdering, fetchMyOrderings } from '../api/oders'
+import type { Ordering } from '../types'
+
+const statusLabel: Record<Ordering['status'], string> = {
+  PENDING: 'Chờ xác nhận',
+  CONFIRMED: 'Đã xác nhận',
+  IN_PROGRESS: 'Đang thực hiện',
+  COMPLETED: 'Hoàn thành',
+  CANCELLED: 'Đã huỷ',
+}
+
+export default function MyOrderingsPage() {
+  const [bookings, setOrderings] = useState<Ordering[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  function load() {
+    setLoading(true)
+    fetchMyOrderings()
+      .then(setOrderings)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  async function handleCancel(id: number) {
+    try {
+      await cancelOrdering(id)
+      load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Huỷ lịch thất bại')
+    }
+  }
+
+  if (loading) return <p className="loading">Đang tải lịch đặt...</p>
+
+  return (
+    <section>
+      <h2>Lịch đặt của tôi</h2>
+      {error && <p className="error">{error}</p>}
+      {bookings.length === 0 ? (
+        <p>Bạn chưa có lịch đặt nào.</p>
+      ) : (
+        <table className="bookings-table">
+          <thead>
+            <tr>
+              <th>Dịch vụ</th>
+              <th>Biển số</th>
+              <th>Thời gian</th>
+              <th>Trạng thái</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {bookings.map((b) => (
+              <tr key={b.id}>
+                <td>{b.serviceName ?? `#${b.serviceId}`}</td>
+                <td>{b.vehiclePlate}</td>
+                <td>{new Date(b.scheduledAt).toLocaleString('vi-VN')}</td>
+                <td>{statusLabel[b.status]}</td>
+                <td>
+                  {b.status === 'PENDING' && (
+                    <button type="button" onClick={() => handleCancel(b.id)}>
+                      Huỷ
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  )
+}
+</file>
+
+<file path="src/pages/NotFoundPage.tsx">
+import { Link } from 'react-router-dom'
+
+export default function NotFoundPage() {
+  return (
+    <section className="hero-section">
+      <h1>404</h1>
+      <p>Trang bạn tìm không tồn tại.</p>
+      <Link to="/" className="btn-primary">
+        Về trang chủ
+      </Link>
+    </section>
+  )
+}
+</file>
+
+<file path="src/pages/OrderingPage.tsx">
+import { useEffect, useState, type FormEvent } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { fetchServices } from '../api/services'
+import { createOrdering } from '../api/oders'
+import type { Service } from '../types'
+
+export default function OrderingPage() {
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+
+  const [services, setServices] = useState<Service[]>([])
+  const [serviceId, setServiceId] = useState(searchParams.get('serviceId') ?? '')
+  const [vehiclePlate, setVehiclePlate] = useState('')
+  const [scheduledAt, setScheduledAt] = useState('')
+  const [note, setNote] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchServices().then(setServices).catch(() => setError('Không tải được danh sách dịch vụ'))
+  }, [])
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+
+    if (!serviceId || !vehiclePlate || !scheduledAt) {
+      setError('Vui lòng điền đầy đủ thông tin')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await createOrdering({
+        serviceId: Number(serviceId),
+        vehiclePlate,
+        scheduledAt: new Date(scheduledAt).toISOString(),
+        note: note || undefined,
+      })
+      navigate('/my-Orderings')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Đặt lịch thất bại')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <section className="form-section">
+      <h2>Đặt lịch rửa xe</h2>
+      <form onSubmit={handleSubmit} className="form">
+        <label>
+          Dịch vụ
+          <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} required>
+            <option value="">-- Chọn dịch vụ --</option>
+            {services.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.price.toLocaleString('vi-VN')}đ)
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Biển số xe
+          <input
+            type="text"
+            value={vehiclePlate}
+            onChange={(e) => setVehiclePlate(e.target.value)}
+            placeholder="VD: 30A-123.45"
+            required
+          />
+        </label>
+
+        <label>
+          Thời gian mong muốn
+          <input
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            required
+          />
+        </label>
+
+        <label>
+          Ghi chú (tuỳ chọn)
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
+        </label>
+
+        {error && <p className="error">{error}</p>}
+
+        <button type="submit" className="btn-primary" disabled={submitting}>
+          {submitting ? 'Đang gửi...' : 'Xác nhận đặt lịch'}
+        </button>
+      </form>
+    </section>
+  )
+}
+</file>
+
+<file path="src/pages/RegisterPage.tsx">
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+
+export default function RegisterPage() {
+  const { register } = useAuth()
+  const navigate = useNavigate()
+
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setSubmitting(true)
+    try {
+      await register({ name, email, phone: phone || undefined, password })
+      navigate('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Đăng ký thất bại')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <section className="form-section">
+      <h2>Đăng ký</h2>
+      <form onSubmit={handleSubmit} className="form">
+        <label>
+          Họ tên
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} required />
+        </label>
+        <label>
+          Email
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </label>
+        <label>
+          Số điện thoại (tuỳ chọn)
+          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </label>
+        <label>
+          Mật khẩu
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={6}
+            required
+          />
+        </label>
+
+        {error && <p className="error">{error}</p>}
+
+        <button type="submit" className="btn-primary" disabled={submitting}>
+          {submitting ? 'Đang tạo tài khoản...' : 'Đăng ký'}
+        </button>
+      </form>
+      <p>
+        Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
+      </p>
+    </section>
+  )
+}
+</file>
+
+<file path="src/pages/ServicesPage.tsx">
+import { useEffect, useState } from 'react'
+import ServiceCard from '../components/ServiceCard'
+import { fetchServices } from '../api/services'
+import type { Service } from '../types'
+
+export default function ServicesPage() {
+  const [services, setServices] = useState<Service[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchServices()
+      .then(setServices)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <p className="loading">Đang tải danh sách dịch vụ...</p>
+  if (error) return <p className="error">{error}</p>
+
+  return (
+    <section>
+      <h2>Danh sách dịch vụ</h2>
+      {services.length === 0 ? (
+        <p>Chưa có dịch vụ nào. Hãy thêm dữ liệu ở BE để hiển thị tại đây.</p>
+      ) : (
+        <div className="service-grid">
+          {services.map((service) => (
+            <ServiceCard key={service.id} service={service} />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+</file>
+
+<file path="src/types/index.ts">
+// Các kiểu dữ liệu dùng chung trong app.
+// Chỉnh lại field cho khớp với response thật của BE khi bạn build API xong.
+
+export interface User {
+  id?: number | string
+  name?: string
+  fullName?: string
+  username?: string
+  email?: string
+  role?: string
+}
+
+export interface AuthResponse {
+  token: string
+  user: User
+}
+
+export interface Service {
+  id: number
+  name: string
+  description: string
+  price: number
+  durationMinutes: number
+  imageUrl?: string
+}
+
+export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+
+export interface Ordering {
+  id: number
+  serviceId: number
+  serviceName?: string
+  vehiclePlate: string
+  scheduledAt: string // ISO datetime
+  status: OrderStatus
+  note?: string
+}
+
+export interface CreateOrderingPayload {
+  serviceId: number
+  vehiclePlate: string
+  scheduledAt: string
+  note?: string
+}
+
+export interface LoginPayload {
+  email: string
+  password: string
+}
+
+export interface RegisterPayload {
+  name: string
+  email: string
+  phone?: string
+  password: string
+}
+</file>
+
+<file path="src/App.css">
+#content {
+  flex: 1;
+  padding: 32px;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--text-h);
+  text-decoration: none;
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.navbar-links a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.navbar-links a:hover {
+  color: var(--text-h);
+}
+
+.navbar-user {
+  color: var(--text-h);
+  font-size: 15px;
+}
+
+.navbar-links button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+
+.hero-section {
+  text-align: center;
+  padding: 64px 20px;
+}
+
+.hero-section h1 {
+  margin-bottom: 12px;
+}
+
+.btn-primary {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.service-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.service-card img {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.service-card-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-h);
+  margin: 12px 0;
+  font-weight: 500;
+}
+
+.form-section {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.form input,
+.form select,
+.form textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+}
+
+.bookings-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.bookings-table th,
+.bookings-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.loading,
+.error {
+  padding: 20px;
+}
+
+.error {
+  color: #e5484d;
+}
+</file>
+
+<file path="src/App.tsx">
+import { Route, Routes } from 'react-router-dom'
+import Navbar from './components/Navbar'
+import ProtectedRoute from './components/ProtectedRoute'
+import HomePage from './pages/HomePage'
+import ServicesPage from './pages/ServicesPage'
+import OrderingPage from './pages/OrderingPage'
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
+import MyOrdersPage from './pages/MyOrdersPage'
+import NotFoundPage from './pages/NotFoundPage'
+import './App.css'
+
+function App() {
+  return (
+    <>
+      <Navbar />
+      <main id="content">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route
+            path="/ordering"
+            element={
+              <ProtectedRoute>
+                <OrderingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-orderings"
+            element={
+              <ProtectedRoute>
+                <MyOrdersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </main>
+    </>
+  )
+}
+
+export default App
+</file>
+
+<file path="src/index.css">
+:root {
+  --text: #6b6375;
+  --text-h: #08060d;
+  --bg: #fff;
+  --border: #e5e4e7;
+  --code-bg: #f4f3ec;
+  --accent: #aa3bff;
+  --accent-bg: rgba(170, 59, 255, 0.1);
+  --accent-border: rgba(170, 59, 255, 0.5);
+  --social-bg: rgba(244, 243, 236, 0.5);
+  --shadow:
+    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #9ca3af;
+    --text-h: #f3f4f6;
+    --bg: #16171d;
+    --border: #2e303a;
+    --code-bg: #1f2028;
+    --accent: #c084fc;
+    --accent-bg: rgba(192, 132, 252, 0.15);
+    --accent-border: rgba(192, 132, 252, 0.5);
+    --social-bg: rgba(47, 48, 58, 0.5);
+    --shadow:
+      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  }
+}
+
+#root {
+  max-width: 1126px;
+  margin: 0 auto;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+h1 {
+  font-size: 48px;
+  letter-spacing: -1.44px;
+  margin: 0 0 12px;
+  @media (max-width: 1024px) {
+    font-size: 32px;
+  }
+}
+h2 {
+  font-size: 26px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 16px;
+  @media (max-width: 1024px) {
+    font-size: 22px;
+  }
+}
+p {
+  margin: 0;
+}
+</file>
+
+<file path="src/main.tsx">
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
+import './index.css'
+import App from './App.tsx'
+import { AuthProvider } from './context/AuthContext.tsx'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
+  </StrictMode>,
+)
+</file>
+
+<file path=".env.example">
+# URL gốc của API backend
+VITE_API_URL=http://localhost:8080/api/v1
+</file>
+
+<file path=".gitignore">
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.local
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+</file>
+
+<file path=".oxlintrc.json">
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}
+</file>
+
+<file path="index.html">
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Car Wash</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+</file>
+
+<file path="package.json">
+{
+  "name": "car-wash-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "oxlint": "^1.75.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0"
+  }
+}
+</file>
+
+<file path="README.md">
+# Car Wash Frontend
+
+FE cơ bản (React + TypeScript + Vite) cho app đặt lịch rửa xe, sẵn sàng ghép với BE.
+
+## Cài đặt
+
+```bash
+npm install
+cp .env.example .env   # rồi sửa VITE_API_URL trỏ về BE của bạn
+npm run dev
+```
+
+## Cấu trúc
+
+- `src/api/` — các hàm gọi API (auth, services, Orderings) qua `fetch`, tự gắn Bearer token.
+- `src/context/AuthContext.tsx` — quản lý trạng thái đăng nhập toàn app.
+- `src/components/` — Navbar, ProtectedRoute, ServiceCard.
+- `src/pages/` — Home, Services, Ordering (cần đăng nhập), Login, Register, MyOrderings (cần đăng nhập).
+- `src/types/` — interface dùng chung, chỉnh lại field cho khớp response thật của BE.
+
+## Endpoint BE mà FE đang gọi (chỉnh lại cho khớp)
+
+- `POST /auth/login` → `{ token, user }`
+- `POST /auth/register` → `{ token, user }`
+- `GET /auth/me` → `User`
+- `GET /services` → `Service[]`
+- `GET /services/:id` → `Service`
+- `POST /Orderings` → `Ordering`
+- `GET /Orderings/me` → `Ordering[]`
+- `DELETE /Orderings/:id` → `204`
+
+Đổi field/route trong `src/types/index.ts` và `src/api/*.ts` cho khớp BE thực tế của bạn.
+</file>
+
+<file path="tsconfig.app.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}
+</file>
+
+<file path="tsconfig.json">
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
+</file>
+
+<file path="tsconfig.node.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    "module": "nodenext",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["vite.config.ts"]
+}
+</file>
+
+<file path="vite.config.ts">
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+})
+</file>
+
+</files>

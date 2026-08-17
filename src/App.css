@@ -1,0 +1,378 @@
+#content {
+  flex: 1;
+  padding: 32px;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--text-h);
+  text-decoration: none;
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.navbar-links a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.navbar-links a:hover {
+  color: var(--text-h);
+}
+
+.navbar-user {
+  color: var(--text-h);
+  font-size: 15px;
+}
+
+.navbar-links button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+
+.hero-section {
+  text-align: center;
+  padding: 64px 20px;
+}
+
+.hero-section h1 {
+  margin-bottom: 12px;
+}
+
+.btn-primary {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.service-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.service-card img {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.service-card-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-h);
+  margin: 12px 0;
+  font-weight: 500;
+}
+
+.form-section {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.form input,
+.form select,
+.form textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+}
+
+.bookings-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.bookings-table th,
+.bookings-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.loading,
+.error {
+  padding: 20px;
+}
+
+.error {
+  color: #e5484d;
+}
+.form-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.form-inline label {
+  min-width: 160px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 24px;
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.badge-success {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.badge-muted {
+  background: rgba(107, 114, 128, 0.15);
+  color: #6b7280;
+}
+.two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin-top: 20px;
+}
+
+.two-column h3 {
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: var(--text-h);
+}
+
+.search-box {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.list-select {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.list-select li {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.list-select li:hover {
+  background: var(--accent-bg);
+}
+
+.list-select li.selected {
+  background: var(--accent-bg);
+  border-left: 3px solid var(--accent);
+}
+
+.muted {
+  color: var(--text);
+  font-size: 14px;
+}
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-row > label {
+  flex: 1;
+}
+
+.field-label {
+  font-size: 14px;
+  color: var(--text-h);
+  margin: 8px 0 4px;
+}
+
+.price-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.info-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.info-card h4 {
+  margin: 0 0 8px;
+  color: var(--text-h);
+}
+
+.price-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
+.price-list li {
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 24px;
+  width: 360px;
+  box-shadow: var(--shadow);
+}
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.link-back {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.info-row {
+  display: flex;
+  gap: 32px;
+  margin: 16px 0;
+}
+
+.modal-lg {
+  width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.wizard-step {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 8px;
+}
+
+.list-select-compact {
+  max-height: 160px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  flex-direction: row;
+}
+
+.order-status-PENDING { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+.order-status-IN_PROGRESS { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.order-status-WAITING_PAYMENT { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+.order-status-COMPLETED { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
+.order-status-CANCELLED { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+
+.item-status-PENDING { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+.item-status-IN_PROGRESS { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.item-status-COMPLETED { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
+.item-status-DELAYED { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
