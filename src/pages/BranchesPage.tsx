@@ -1,6 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Building2, Plus } from 'lucide-react'
 import { fetchBranches, createBranch, updateBranchStatus } from '../api/branches'
 import type { Branch } from '../types'
+import Card from '../components/ui/Card'
+import Button from '../components/ui/Button'
+import Field from '../components/ui/Field'
+import Badge from '../components/ui/Badge'
+import { PageHeader, ErrorBanner, EmptyState, LoadingBlock } from '../components/ui/Misc'
+import { ACTIVE_STATUS_TONE } from '../components/ui/statusTone'
+import { inputClass, tableWrapClass, tableClass, thClass, tdClass, trHoverClass } from '../components/ui/styles'
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([])
@@ -51,62 +59,72 @@ export default function BranchesPage() {
 
   return (
     <section>
-      <h2>Quản lý chi nhánh</h2>
+      <PageHeader title="Quản lý chi nhánh" />
 
-      <form onSubmit={handleSubmit} className="form form-inline">
-        <label>
-          Tên chi nhánh
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label>
-          Địa chỉ
-          <input value={address} onChange={(e) => setAddress(e.target.value)} />
-        </label>
-        <label>
-          Điện thoại
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </label>
-        <button type="submit" className="btn-primary" disabled={submitting}>
-          {submitting ? 'Đang tạo...' : 'Thêm chi nhánh'}
-        </button>
-      </form>
+      <Card className="mb-6">
+        <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-4">
+          <Field label="Tên chi nhánh" className="min-w-[200px] flex-1">
+            <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} required />
+          </Field>
+          <Field label="Địa chỉ" className="min-w-[200px] flex-1">
+            <input className={inputClass} value={address} onChange={(e) => setAddress(e.target.value)} />
+          </Field>
+          <Field label="Điện thoại" className="min-w-[160px]">
+            <input className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </Field>
+          <Button type="submit" variant="primary" loading={submitting}>
+            <Plus className="h-4 w-4" />
+            {submitting ? 'Đang tạo...' : 'Thêm chi nhánh'}
+          </Button>
+        </form>
+      </Card>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+
       {loading ? (
-        <p className="loading">Đang tải...</p>
+        <LoadingBlock />
+      ) : branches.length === 0 ? (
+        <EmptyState>Chưa có chi nhánh nào.</EmptyState>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Tên</th>
-              <th>Địa chỉ</th>
-              <th>Điện thoại</th>
-              <th>Trạng thái</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {branches.map((b) => (
-              <tr key={b.id}>
-                <td>{b.id}</td>
-                <td>{b.name}</td>
-                <td>{b.address}</td>
-                <td>{b.phone}</td>
-                <td>
-                  <span className={`badge ${b.status === 'ACTIVE' ? 'badge-success' : 'badge-muted'}`}>
-                    {b.status === 'ACTIVE' ? 'Hoạt động' : 'Ngừng hoạt động'}
-                  </span>
-                </td>
-                <td>
-                  <button type="button" onClick={() => handleToggleStatus(b)}>
-                    {b.status === 'ACTIVE' ? 'Ngừng hoạt động' : 'Kích hoạt lại'}
-                  </button>
-                </td>
+        <div className={tableWrapClass}>
+          <table className={tableClass}>
+            <thead>
+              <tr>
+                <th className={thClass}>ID</th>
+                <th className={thClass}>Tên</th>
+                <th className={thClass}>Địa chỉ</th>
+                <th className={thClass}>Điện thoại</th>
+                <th className={thClass}>Trạng thái</th>
+                <th className={thClass}></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {branches.map((b) => (
+                <tr key={b.id} className={trHoverClass}>
+                  <td className={`${tdClass} tabular text-ink-faint`}>{b.id}</td>
+                  <td className={`${tdClass} font-medium`}>
+                    <span className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-ink-faint" />
+                      {b.name}
+                    </span>
+                  </td>
+                  <td className={tdClass}>{b.address || '—'}</td>
+                  <td className={`${tdClass} tabular`}>{b.phone || '—'}</td>
+                  <td className={tdClass}>
+                    <Badge tone={ACTIVE_STATUS_TONE[b.status]}>
+                      {b.status === 'ACTIVE' ? 'Hoạt động' : 'Ngừng hoạt động'}
+                    </Badge>
+                  </td>
+                  <td className={tdClass}>
+                    <Button size="sm" variant="secondary" onClick={() => handleToggleStatus(b)}>
+                      {b.status === 'ACTIVE' ? 'Ngừng hoạt động' : 'Kích hoạt lại'}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   )

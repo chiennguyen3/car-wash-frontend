@@ -1,11 +1,18 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { Plus, Search, ArrowRight, ClipboardList } from 'lucide-react'
 import { fetchOrders, createOrder } from '../api/orders'
 import { fetchCustomers } from '../api/customers'
 import { fetchVehiclesByCustomer } from '../api/vehicles'
 import { fetchWashServices } from '../api/services'
 import type { Order, Customer, Vehicle, WashService } from '../types'
 import { ORDER_STATUS_LABEL } from '../types'
+import Button from '../components/ui/Button'
+import Badge from '../components/ui/Badge'
+import Modal from '../components/ui/Modal'
+import { PageHeader, ErrorBanner, EmptyState, LoadingBlock } from '../components/ui/Misc'
+import { ORDER_STATUS_TONE } from '../components/ui/statusTone'
+import { inputClass, tableWrapClass, tableClass, thClass, tdClass, trHoverClass } from '../components/ui/styles'
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -101,133 +108,174 @@ export default function OrdersPage() {
 
   return (
     <section>
-      <div className="page-header">
-        <h2>Đơn hàng</h2>
-        <button type="button" className="btn-primary" onClick={openCreateForm}>
-          + Tạo đơn mới
-        </button>
-      </div>
+      <PageHeader
+        title="Đơn hàng"
+        action={
+          <Button variant="primary" onClick={openCreateForm}>
+            <Plus className="h-4 w-4" />
+            Tạo đơn mới
+          </Button>
+        }
+      />
 
-      {error && <p className="error">{error}</p>}
+      {error && !showCreateForm && <ErrorBanner>{error}</ErrorBanner>}
+
       {loading ? (
-        <p className="loading">Đang tải...</p>
+        <LoadingBlock />
+      ) : orders.length === 0 ? (
+        <EmptyState>Chưa có đơn hàng nào.</EmptyState>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Mã đơn</th>
-              <th>Khách hàng</th>
-              <th>Biển số</th>
-              <th>Tổng tiền</th>
-              <th>Trạng thái</th>
-              <th>Thời gian tạo</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((o) => (
-              <tr key={o.id}>
-                <td>#{o.id}</td>
-                <td>{o.customerName}</td>
-                <td>{o.licensePlate}</td>
-                <td>{o.totalAmount.toLocaleString('vi-VN')}đ</td>
-                <td>
-                  <span className={`badge order-status-${o.status}`}>{ORDER_STATUS_LABEL[o.status]}</span>
-                </td>
-                <td>{new Date(o.createdAt).toLocaleString('vi-VN')}</td>
-                <td>
-                  <Link to={`/orders/${o.id}`}>Xem chi tiết</Link>
-                </td>
-              </tr>
-            ))}
-            {orders.length === 0 && (
+        <div className={tableWrapClass}>
+          <table className={tableClass}>
+            <thead>
               <tr>
-                <td colSpan={7} className="muted">Chưa có đơn hàng nào.</td>
+                <th className={thClass}>Mã đơn</th>
+                <th className={thClass}>Khách hàng</th>
+                <th className={thClass}>Biển số</th>
+                <th className={thClass}>Tổng tiền</th>
+                <th className={thClass}>Trạng thái</th>
+                <th className={thClass}>Thời gian tạo</th>
+                <th className={thClass}></th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr key={o.id} className={trHoverClass}>
+                  <td className={`${tdClass} tabular font-medium text-suds-700`}>#{o.id}</td>
+                  <td className={tdClass}>{o.customerName}</td>
+                  <td className={`${tdClass} tabular`}>{o.licensePlate}</td>
+                  <td className={`${tdClass} tabular font-medium`}>{o.totalAmount.toLocaleString('vi-VN')}đ</td>
+                  <td className={tdClass}>
+                    <Badge tone={ORDER_STATUS_TONE[o.status]}>{ORDER_STATUS_LABEL[o.status]}</Badge>
+                  </td>
+                  <td className={`${tdClass} tabular text-ink-muted`}>{new Date(o.createdAt).toLocaleString('vi-VN')}</td>
+                  <td className={tdClass}>
+                    <Link
+                      to={`/orders/${o.id}`}
+                      className="inline-flex items-center gap-1 text-sm font-medium text-suds-600 hover:text-suds-700"
+                    >
+                      Xem chi tiết
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {showCreateForm && (
-        <div className="modal-overlay" onClick={() => setShowCreateForm(false)}>
-          <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
-            <h3>Tạo đơn hàng mới</h3>
-            <form onSubmit={handleSubmit} className="form">
-              <div className="wizard-step">
-                <p className="field-label">1. Chọn khách hàng</p>
+        <Modal title="Tạo đơn hàng mới" onClose={() => setShowCreateForm(false)} size="lg">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-suds-100 text-[11px] text-suds-700">1</span>
+                Chọn khách hàng
+              </p>
+              <div className="relative mb-2">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
                 <input
-                  className="search-box"
+                  className={`${inputClass} pl-9`}
                   placeholder="Tìm theo SĐT hoặc tên..."
                   value={customerSearch}
                   onChange={(e) => setCustomerSearch(e.target.value)}
                 />
-                <ul className="list-select list-select-compact">
-                  {filteredCustomers.map((c) => (
-                    <li
-                      key={c.id}
-                      className={selectedCustomerId === c.id ? 'selected' : ''}
+              </div>
+              <ul className="scrollbar-thin max-h-40 space-y-1 overflow-y-auto rounded-lg border border-border p-1.5">
+                {filteredCustomers.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
                       onClick={() => handleSelectCustomer(c.id)}
+                      className={`w-full rounded-md px-2.5 py-2 text-left text-sm transition-colors ${
+                        selectedCustomerId === c.id ? 'bg-suds-50 text-suds-700' : 'hover:bg-surface-sunken'
+                      }`}
                     >
                       {c.fullName} — {c.phoneNumber}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                    </button>
+                  </li>
+                ))}
+                {filteredCustomers.length === 0 && (
+                  <li className="px-2.5 py-2 text-sm text-ink-faint">Không tìm thấy khách hàng.</li>
+                )}
+              </ul>
+            </div>
 
-              {selectedCustomerId && (
-                <div className="wizard-step">
-                  <p className="field-label">2. Chọn xe</p>
-                  <ul className="list-select list-select-compact">
-                    {vehicles.map((v) => (
-                      <li
-                        key={v.id}
-                        className={selectedVehicleId === v.id ? 'selected' : ''}
+            {selectedCustomerId && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-suds-100 text-[11px] text-suds-700">2</span>
+                  Chọn xe
+                </p>
+                <ul className="scrollbar-thin max-h-40 space-y-1 overflow-y-auto rounded-lg border border-border p-1.5">
+                  {vehicles.map((v) => (
+                    <li key={v.id}>
+                      <button
+                        type="button"
                         onClick={() => {
                           setSelectedVehicleId(v.id)
                           setSelectedServiceIds([])
                         }}
+                        className={`w-full rounded-md px-2.5 py-2 text-left text-sm transition-colors ${
+                          selectedVehicleId === v.id ? 'bg-suds-50 text-suds-700' : 'hover:bg-surface-sunken'
+                        }`}
                       >
                         {v.licensePlate} ({v.brand} {v.modelName})
-                      </li>
-                    ))}
-                    {vehicles.length === 0 && <p className="muted">Khách hàng chưa có xe nào.</p>}
-                  </ul>
-                </div>
-              )}
+                      </button>
+                    </li>
+                  ))}
+                  {vehicles.length === 0 && (
+                    <li className="px-2.5 py-2 text-sm text-ink-faint">Khách hàng chưa có xe nào.</li>
+                  )}
+                </ul>
+              </div>
+            )}
 
-              {selectedVehicleId && (
-                <div className="wizard-step">
-                  <p className="field-label">3. Chọn dịch vụ</p>
+            {selectedVehicleId && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-suds-100 text-[11px] text-suds-700">3</span>
+                  Chọn dịch vụ
+                </p>
+                <div className="space-y-1 rounded-lg border border-border p-1.5">
                   {availableServices.map((s) => {
                     const price = s.prices.find((p) => p.vehicleType === selectedVehicle?.vehicleType)
                     return (
-                      <label key={s.id} className="checkbox-row">
+                      <label
+                        key={s.id}
+                        className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors hover:bg-surface-sunken"
+                      >
                         <input
                           type="checkbox"
+                          className="h-4 w-4 rounded border-border-strong text-suds-600 focus:ring-suds-300"
                           checked={selectedServiceIds.includes(s.id)}
                           onChange={() => toggleService(s.id)}
                         />
-                        {s.name} — {price?.price.toLocaleString('vi-VN')}đ
+                        <span className="flex-1">{s.name}</span>
+                        <span className="tabular font-medium text-ink">{price?.price.toLocaleString('vi-VN')}đ</span>
                       </label>
                     )
                   })}
                   {availableServices.length === 0 && (
-                    <p className="muted">Không có dịch vụ nào áp dụng cho loại xe này.</p>
+                    <p className="px-2.5 py-2 text-sm text-ink-faint">Không có dịch vụ nào áp dụng cho loại xe này.</p>
                   )}
                 </div>
-              )}
-
-              {error && <p className="error">{error}</p>}
-              <div className="form-row">
-                <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? 'Đang tạo...' : 'Tạo đơn hàng'}
-                </button>
-                <button type="button" onClick={() => setShowCreateForm(false)}>Huỷ</button>
               </div>
-            </form>
-          </div>
-        </div>
+            )}
+
+            {error && <ErrorBanner>{error}</ErrorBanner>}
+            <div className="flex gap-2">
+              <Button type="submit" variant="primary" loading={submitting} className="flex-1">
+                <ClipboardList className="h-4 w-4" />
+                {submitting ? 'Đang tạo...' : 'Tạo đơn hàng'}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)}>
+                Huỷ
+              </Button>
+            </div>
+          </form>
+        </Modal>
       )}
     </section>
   )

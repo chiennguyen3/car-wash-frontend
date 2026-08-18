@@ -1,88 +1,115 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@import "tailwindcss";
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+@theme {
+  /* ---- Typography ---- */
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* ---- Suds: thương hiệu chính, gợi bọt nước rửa xe ---- */
+  --color-suds-50: #EAF7F7;
+  --color-suds-100: #CFEEEE;
+  --color-suds-200: #9EDCDD;
+  --color-suds-300: #6BC7C9;
+  --color-suds-400: #3CADB1;
+  --color-suds-500: #0E7C86;
+  --color-suds-600: #0B6670;
+  --color-suds-700: #095159;
+  --color-suds-800: #073B41;
+  --color-suds-900: #05282C;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
+  /* ---- Wax: điểm nhấn phụ, gợi sáp đánh bóng / độ bóng ---- */
+  --color-wax-50: #FDF6E9;
+  --color-wax-100: #FAEACB;
+  --color-wax-200: #F4DBA0;
+  --color-wax-300: #F0CB86;
+  --color-wax-400: #EEC06B;
+  --color-wax-500: #E2A73E;
+  --color-wax-600: #C48A26;
+  --color-wax-700: #9C6C1A;
+
+  /* ---- Nền / chữ trung tính ---- */
+  --color-bg: #F5F7FA;
+  --color-surface: #FFFFFF;
+  --color-surface-sunken: #EEF2F6;
+  --color-ink: #10151C;
+  --color-ink-muted: #5B6472;
+  --color-ink-faint: #8A93A1;
+  --color-border: #E2E7ED;
+  --color-border-strong: #C9D1DB;
+
+  /* ---- Trạng thái ---- */
+  --color-success: #21875B;
+  --color-success-bg: #E5F5EE;
+  --color-warning: #B5790E;
+  --color-warning-bg: #FBF0D9;
+  --color-danger: #C6382F;
+  --color-danger-bg: #FBE9E8;
+  --color-info: #2C6CA8;
+  --color-info-bg: #E8F1FA;
+  --color-neutral: #5B6472;
+  --color-neutral-bg: #EAEDF1;
+
+  --shadow-card: 0 1px 2px rgba(16, 21, 28, 0.04), 0 1px 8px rgba(16, 21, 28, 0.04);
+  --shadow-popover: 0 8px 24px rgba(16, 21, 28, 0.12), 0 2px 6px rgba(16, 21, 28, 0.08);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--color-ink);
+    letter-spacing: -0.01em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-suds-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--color-suds-200);
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
   }
-}
 
-#root {
-  max-width: 1126px;
-  margin: 0 auto;
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 48px;
-  letter-spacing: -1.44px;
-  margin: 0 0 12px;
-  @media (max-width: 1024px) {
-    font-size: 32px;
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
-}
-h2 {
-  font-size: 26px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 16px;
-  @media (max-width: 1024px) {
-    font-size: 22px;
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: 999px;
   }
-}
-p {
-  margin: 0;
+
+  /* Vệt bọt nước chạy ngang - tín hiệu tải trang, dùng tiết chế */
+  @keyframes suds-sweep {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .suds-loading {
+    background: linear-gradient(90deg, var(--color-surface-sunken) 25%, var(--color-suds-100) 50%, var(--color-surface-sunken) 75%);
+    background-size: 200% 100%;
+    animation: suds-sweep 1.4s ease-in-out infinite;
+  }
 }

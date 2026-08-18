@@ -1,8 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Search, UserPlus, CarFront, Star } from 'lucide-react'
 import { fetchCustomers, createCustomer } from '../api/customers'
 import { fetchVehiclesByCustomer, createVehicle } from '../api/vehicles'
 import type { Customer, Vehicle, VehicleType } from '../types'
 import { VEHICLE_TYPE_LABEL } from '../types'
+import Card from '../components/ui/Card'
+import Button from '../components/ui/Button'
+import Field from '../components/ui/Field'
+import Badge from '../components/ui/Badge'
+import { ErrorBanner, EmptyState, LoadingBlock } from '../components/ui/Misc'
+import { inputClass, selectClass, tableWrapClass, tableClass, thClass, tdClass, trHoverClass } from '../components/ui/styles'
 
 const VEHICLE_TYPE_OPTIONS: VehicleType[] = ['MOTORBIKE', 'CAR_4_SEATS', 'CAR_7_SEATS', 'TRUCK']
 
@@ -94,128 +101,149 @@ export default function CustomersPage() {
 
   return (
     <section>
-      <h2>Khách hàng & Xe</h2>
-      {error && <p className="error">{error}</p>}
+      <h2 className="mb-6 font-display text-2xl font-semibold text-ink">Khách hàng &amp; Xe</h2>
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
-      <div className="two-column">
-        <div>
-          <h3>Danh sách khách hàng</h3>
-          <input
-            className="search-box"
-            placeholder="Tìm theo SĐT hoặc tên..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Cột trái: danh sách khách hàng */}
+        <Card>
+          <h3 className="mb-3 font-display text-base font-semibold text-ink">Danh sách khách hàng</h3>
 
-          <form onSubmit={handleCreateCustomer} className="form form-inline">
-            <label>
-              Họ tên
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-            </label>
-            <label>
-              Số điện thoại
-              <input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} required />
-            </label>
-            <button type="submit" className="btn-primary" disabled={submittingCustomer}>
-              {submittingCustomer ? 'Đang tạo...' : 'Thêm khách hàng'}
-            </button>
+          <div className="relative mb-4">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+            <input
+              className={`${inputClass} pl-9`}
+              placeholder="Tìm theo SĐT hoặc tên..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <form onSubmit={handleCreateCustomer} className="mb-4 flex flex-wrap items-end gap-3">
+            <Field label="Họ tên" className="min-w-[140px] flex-1">
+              <input className={inputClass} value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            </Field>
+            <Field label="Số điện thoại" className="min-w-[140px] flex-1">
+              <input className={inputClass} value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} required />
+            </Field>
+            <Button type="submit" variant="primary" loading={submittingCustomer}>
+              <UserPlus className="h-4 w-4" />
+              {submittingCustomer ? 'Đang tạo...' : 'Thêm'}
+            </Button>
           </form>
 
           {loading ? (
-            <p className="loading">Đang tải...</p>
+            <LoadingBlock />
+          ) : filteredCustomers.length === 0 ? (
+            <EmptyState>Không tìm thấy khách hàng nào.</EmptyState>
           ) : (
-            <ul className="list-select">
+            <ul className="scrollbar-thin max-h-[420px] space-y-1 overflow-y-auto">
               {filteredCustomers.map((c) => (
-                <li
-                  key={c.id}
-                  className={selectedCustomer?.id === c.id ? 'selected' : ''}
-                  onClick={() => loadVehicles(c)}
-                >
-                  <strong>{c.fullName}</strong> — {c.phoneNumber}
-                  <span className="muted"> ({c.customerCode})</span>
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => loadVehicles(c)}
+                    className={`w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                      selectedCustomer?.id === c.id
+                        ? 'border border-suds-200 bg-suds-50'
+                        : 'border border-transparent hover:bg-surface-sunken'
+                    }`}
+                  >
+                    <span className="font-medium text-ink">{c.fullName}</span>
+                    <span className="text-ink-muted"> — {c.phoneNumber}</span>
+                    <span className="ml-1 text-xs text-ink-faint">({c.customerCode})</span>
+                  </button>
                 </li>
               ))}
-              {filteredCustomers.length === 0 && <p className="muted">Không tìm thấy khách hàng nào.</p>}
             </ul>
           )}
-        </div>
+        </Card>
 
-        <div>
-          <h3>Xe của khách hàng</h3>
+        {/* Cột phải: xe của khách hàng đang chọn */}
+        <Card>
+          <h3 className="mb-3 font-display text-base font-semibold text-ink">Xe của khách hàng</h3>
+
           {!selectedCustomer ? (
-            <p className="muted">Chọn 1 khách hàng bên trái để xem/thêm xe.</p>
+            <EmptyState>Chọn 1 khách hàng bên trái để xem/thêm xe.</EmptyState>
           ) : (
             <>
-              <p>
-                Đang xem xe của: <strong>{selectedCustomer.fullName}</strong> ({selectedCustomer.phoneNumber})
+              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg bg-surface-sunken px-3 py-2.5 text-sm">
+                <span className="text-ink-muted">Đang xem xe của</span>
+                <strong className="text-ink">{selectedCustomer.fullName}</strong>
+                <span className="text-ink-muted">({selectedCustomer.phoneNumber})</span>
                 {selectedCustomer.totalPoints !== undefined && (
-                  <span className="badge badge-success" style={{ marginLeft: 8 }}>
+                  <Badge tone="success">
+                    <Star className="h-3 w-3" />
                     {selectedCustomer.totalPoints} điểm
-                  </span>
+                  </Badge>
                 )}
-              </p>
+              </div>
 
-              <form onSubmit={handleCreateVehicle} className="form form-inline">
-                <label>
-                  Biển số
+              <form onSubmit={handleCreateVehicle} className="mb-4 flex flex-wrap items-end gap-3">
+                <Field label="Biển số" className="min-w-[140px] flex-1">
                   <input
+                    className={inputClass}
                     value={licensePlate}
                     onChange={(e) => setLicensePlate(e.target.value)}
                     placeholder="VD: 51A-123.45"
                     required
                   />
-                </label>
-                <label>
-                  Loại xe
-                  <select value={vehicleType} onChange={(e) => setVehicleType(e.target.value as VehicleType)}>
+                </Field>
+                <Field label="Loại xe" className="min-w-[140px]">
+                  <select className={selectClass} value={vehicleType} onChange={(e) => setVehicleType(e.target.value as VehicleType)}>
                     {VEHICLE_TYPE_OPTIONS.map((t) => (
-                      <option key={t} value={t}>{VEHICLE_TYPE_LABEL[t]}</option>
+                      <option key={t} value={t}>
+                        {VEHICLE_TYPE_LABEL[t]}
+                      </option>
                     ))}
                   </select>
-                </label>
-                <label>
-                  Hãng xe
-                  <input value={brand} onChange={(e) => setBrand(e.target.value)} />
-                </label>
-                <label>
-                  Dòng xe
-                  <input value={modelName} onChange={(e) => setModelName(e.target.value)} />
-                </label>
-                <button type="submit" className="btn-primary" disabled={submittingVehicle}>
+                </Field>
+                <Field label="Hãng xe" className="min-w-[110px]">
+                  <input className={inputClass} value={brand} onChange={(e) => setBrand(e.target.value)} />
+                </Field>
+                <Field label="Dòng xe" className="min-w-[110px]">
+                  <input className={inputClass} value={modelName} onChange={(e) => setModelName(e.target.value)} />
+                </Field>
+                <Button type="submit" variant="primary" loading={submittingVehicle}>
+                  <CarFront className="h-4 w-4" />
                   {submittingVehicle ? 'Đang tạo...' : 'Thêm xe'}
-                </button>
+                </Button>
               </form>
 
               {loadingVehicles ? (
-                <p className="loading">Đang tải...</p>
+                <LoadingBlock />
               ) : (
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Biển số</th>
-                      <th>Loại xe</th>
-                      <th>Hãng / Dòng</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vehicles.map((v) => (
-                      <tr key={v.id}>
-                        <td>{v.licensePlate}</td>
-                        <td>{VEHICLE_TYPE_LABEL[v.vehicleType]}</td>
-                        <td>{[v.brand, v.modelName].filter(Boolean).join(' ')}</td>
-                      </tr>
-                    ))}
-                    {vehicles.length === 0 && (
+                <div className={tableWrapClass}>
+                  <table className={tableClass}>
+                    <thead>
                       <tr>
-                        <td colSpan={3} className="muted">Khách hàng chưa có xe nào.</td>
+                        <th className={thClass}>Biển số</th>
+                        <th className={thClass}>Loại xe</th>
+                        <th className={thClass}>Hãng / Dòng</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {vehicles.map((v) => (
+                        <tr key={v.id} className={trHoverClass}>
+                          <td className={`${tdClass} tabular font-medium`}>{v.licensePlate}</td>
+                          <td className={tdClass}>{VEHICLE_TYPE_LABEL[v.vehicleType]}</td>
+                          <td className={tdClass}>{[v.brand, v.modelName].filter(Boolean).join(' ') || '—'}</td>
+                        </tr>
+                      ))}
+                      {vehicles.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className={`${tdClass} text-center text-ink-faint`}>
+                            Khách hàng chưa có xe nào.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </>
           )}
-        </div>
+        </Card>
       </div>
     </section>
   )

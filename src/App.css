@@ -376,3 +376,45 @@
 .item-status-IN_PROGRESS { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
 .item-status-COMPLETED { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
 .item-status-DELAYED { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+.invoice-summary {
+  background: var(--accent-bg);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.invoice-total {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin-top: 8px;
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}
+
+.report-summary {
+  display: flex;
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.stat-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 24px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-h);
+}

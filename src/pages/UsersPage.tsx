@@ -1,7 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { UserPlus } from 'lucide-react'
 import { fetchUsers, createUser, updateUserStatus } from '../api/users'
 import { fetchBranches } from '../api/branches'
 import type { StaffUser, Branch, RoleName } from '../types'
+import Card from '../components/ui/Card'
+import Button from '../components/ui/Button'
+import Field from '../components/ui/Field'
+import Badge from '../components/ui/Badge'
+import { PageHeader, ErrorBanner, EmptyState, LoadingBlock } from '../components/ui/Misc'
+import { ACTIVE_STATUS_TONE } from '../components/ui/statusTone'
+import { inputClass, selectClass, tableWrapClass, tableClass, thClass, tdClass, trHoverClass } from '../components/ui/styles'
 
 const ROLE_OPTIONS: { value: RoleName; label: string }[] = [
   { value: 'TIEP_DON', label: 'Tiếp đón' },
@@ -73,89 +81,103 @@ export default function UsersPage() {
 
   return (
     <section>
-      <h2>Quản lý nhân viên</h2>
+      <PageHeader title="Quản lý nhân viên" />
 
-      <form onSubmit={handleSubmit} className="form form-inline">
-        <label>
-          Họ tên
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label>
-          Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        </label>
-        <label>
-          Mật khẩu
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={6}
-            required
-          />
-        </label>
-        <label>
-          Vai trò
-          <select value={role} onChange={(e) => setRole(e.target.value as RoleName)}>
-            {ROLE_OPTIONS.map((r) => (
-              <option key={r.value} value={r.value}>{r.label}</option>
-            ))}
-          </select>
-        </label>
-        {role !== 'ADMIN_TONG' && (
-          <label>
-            Chi nhánh
-            <select value={branchId} onChange={(e) => setBranchId(e.target.value)} required>
-              <option value="">-- Chọn chi nhánh --</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
+      <Card className="mb-6">
+        <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-4">
+          <Field label="Họ tên" className="min-w-[160px] flex-1">
+            <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} required />
+          </Field>
+          <Field label="Email" className="min-w-[180px] flex-1">
+            <input
+              type="email"
+              className={inputClass}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </Field>
+          <Field label="Mật khẩu" className="min-w-[160px]">
+            <input
+              type="password"
+              className={inputClass}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={6}
+              required
+            />
+          </Field>
+          <Field label="Vai trò" className="min-w-[160px]">
+            <select className={selectClass} value={role} onChange={(e) => setRole(e.target.value as RoleName)}>
+              {ROLE_OPTIONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
               ))}
             </select>
-          </label>
-        )}
-        <button type="submit" className="btn-primary" disabled={submitting}>
-          {submitting ? 'Đang tạo...' : 'Thêm nhân viên'}
-        </button>
-      </form>
+          </Field>
+          {role !== 'ADMIN_TONG' && (
+            <Field label="Chi nhánh" className="min-w-[180px]">
+              <select className={selectClass} value={branchId} onChange={(e) => setBranchId(e.target.value)} required>
+                <option value="">-- Chọn chi nhánh --</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <Button type="submit" variant="primary" loading={submitting}>
+            <UserPlus className="h-4 w-4" />
+            {submitting ? 'Đang tạo...' : 'Thêm nhân viên'}
+          </Button>
+        </form>
+      </Card>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+
       {loading ? (
-        <p className="loading">Đang tải...</p>
+        <LoadingBlock />
+      ) : users.length === 0 ? (
+        <EmptyState>Chưa có nhân viên nào.</EmptyState>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Họ tên</th>
-              <th>Email</th>
-              <th>Vai trò</th>
-              <th>Chi nhánh</th>
-              <th>Trạng thái</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td>{u.id}</td>
-                <td>{u.name}</td>
-                <td>{u.email}</td>
-                <td>{ROLE_OPTIONS.find((r) => r.value === u.role)?.label}</td>
-                <td>{u.branchName ?? '—'}</td>
-                <td>
-                  <span className={`badge ${u.status === 'ACTIVE' ? 'badge-success' : 'badge-muted'}`}>
-                    {u.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khoá'}
-                  </span>
-                </td>
-                <td>
-                  <button type="button" onClick={() => handleToggleStatus(u)}>
-                    {u.status === 'ACTIVE' ? 'Khoá' : 'Mở khoá'}
-                  </button>
-                </td>
+        <div className={tableWrapClass}>
+          <table className={tableClass}>
+            <thead>
+              <tr>
+                <th className={thClass}>ID</th>
+                <th className={thClass}>Họ tên</th>
+                <th className={thClass}>Email</th>
+                <th className={thClass}>Vai trò</th>
+                <th className={thClass}>Chi nhánh</th>
+                <th className={thClass}>Trạng thái</th>
+                <th className={thClass}></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className={trHoverClass}>
+                  <td className={`${tdClass} tabular text-ink-faint`}>{u.id}</td>
+                  <td className={`${tdClass} font-medium`}>{u.name}</td>
+                  <td className={tdClass}>{u.email}</td>
+                  <td className={tdClass}>{ROLE_OPTIONS.find((r) => r.value === u.role)?.label}</td>
+                  <td className={tdClass}>{u.branchName ?? '—'}</td>
+                  <td className={tdClass}>
+                    <Badge tone={ACTIVE_STATUS_TONE[u.status]}>
+                      {u.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khoá'}
+                    </Badge>
+                  </td>
+                  <td className={tdClass}>
+                    <Button size="sm" variant="secondary" onClick={() => handleToggleStatus(u)}>
+                      {u.status === 'ACTIVE' ? 'Khoá' : 'Mở khoá'}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   )
