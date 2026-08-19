@@ -40,6 +40,8 @@ export interface BranchCreatePayload {
   phone?: string
 }
 
+export type BranchUpdatePayload = BranchCreatePayload
+
 // ===== User (nhân viên) =====
 export type UserStatus = 'ACTIVE' | 'INACTIVE'
 
@@ -130,6 +132,8 @@ export interface ServiceCreatePayload {
   prices: ServicePriceItem[]
 }
 
+export type ServiceUpdatePayload = ServiceCreatePayload
+
 // ===== Technician =====
 export type TechnicianStatus = 'ON_DUTY' | 'OFF_DUTY'
 
@@ -144,6 +148,8 @@ export interface Technician {
 export interface TechnicianCreatePayload {
   name: string
 }
+
+export type TechnicianUpdatePayload = TechnicianCreatePayload
 
 export interface ShiftUpdatePayload {
   shiftStart: string
@@ -210,14 +216,24 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   THE: 'Thẻ',
 }
 
+export interface InvoiceItem {
+  serviceName: string
+  price: number
+}
+
 export interface Invoice {
   id: number
   orderId: number
   customerId: number
   customerName: string
+  customerPhone: string
+  licensePlate: string
   cashierId: number
   cashierName: string
   branchId: number
+  branchName: string
+  branchAddress: string
+  branchPhone: string
   subtotal: number
   pointsUsed: number
   pointsDiscount: number
@@ -225,6 +241,7 @@ export interface Invoice {
   pointsEarned: number
   paymentMethod: PaymentMethod
   paidAt: string
+  items: InvoiceItem[]
 }
 
 export interface InvoiceCreatePayload {

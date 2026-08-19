@@ -1,167 +1,245 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Receipt, Plus, Star, Printer } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { fetchInvoices, createInvoice } from '../api/invoices'
 import { fetchOrders } from '../api/orders'
-import { createInvoice } from '../api/invoices'
-import { fetchCustomers } from '../api/customers'
-import type { Order, Invoice, PaymentMethod, Customer } from '../types'
+import type { Invoice, Order, PaymentMethod } from '../types'
 import { PAYMENT_METHOD_LABEL } from '../types'
+import { useAuth } from '../context/AuthContext'
+import Card from '../components/ui/Card'
+import Button from '../components/ui/Button'
+import Field from '../components/ui/Field'
+import Badge from '../components/ui/Badge'
+import Modal from '../components/ui/Modal'
+import { PageHeader, ErrorBanner, EmptyState, LoadingBlock } from '../components/ui/Misc'
+import { inputClass, selectClass, tableWrapClass, tableClass, thClass, tdClass, trHoverClass } from '../components/ui/styles'
 
-const PAYMENT_OPTIONS: PaymentMethod[] = ['TIEN_MAT', 'CHUYEN_KHOAN', 'THE']
+const PAYMENT_METHODS: PaymentMethod[] = ['TIEN_MAT', 'CHUYEN_KHOAN', 'THE']
+
+function toDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function toRangeIso(dateValue: string, endOfDay: boolean) {
+  return `${dateValue}T${endOfDay ? '23:59:59' : '00:00:00'}`
+}
 
 export default function InvoicesPage() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const { user } = useAuth()
+  // Đúng quy trình nghiệp vụ: Tiếp đón chuyển đơn sang WAITING_PAYMENT, chỉ
+  // Thu ngân mới trực tiếp lập hoá đơn. Admin cơ sở chỉ xem/giám sát danh
+  // sách hoá đơn để đối soát, không thao tác lập hoá đơn hàng ngày.
+  const canCreateInvoice = user?.role === 'THU_NGAN'
+
+  const today = new Date()
+  const monthAgo = new Date()
+  monthAgo.setDate(monthAgo.getDate() - 30)
+
+  const [fromDate, setFromDate] = useState(toDateInputValue(monthAgo))
+  const [toDate, setToDate] = useState(toDateInputValue(today))
+
+  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [waitingOrders, setWaitingOrders] = useState<Order[]>([])
+  const [orderId, setOrderId] = useState<string>('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('TIEN_MAT')
   const [pointsToUse, setPointsToUse] = useState('0')
   const [submitting, setSubmitting] = useState(false)
-  const [result, setResult] = useState<Invoice | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
 
   function load() {
     setLoading(true)
-    Promise.all([fetchOrders(), fetchCustomers()])
-      .then(([o, c]) => {
-        setOrders(o.filter((x) => x.status === 'WAITING_PAYMENT'))
-        setCustomers(c)
-      })
-      .catch((err) => setError(err.message))
+    setError(null)
+    fetchInvoices(toRangeIso(fromDate, false), toRangeIso(toDate, true))
+      .then(setInvoices)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Tải hoá đơn thất bại'))
       .finally(() => setLoading(false))
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [])
 
-  function openInvoiceForm(order: Order) {
-    setSelectedOrder(order)
-    setPaymentMethod('TIEN_MAT')
-    setPointsToUse('0')
-    setResult(null)
-    setError(null)
+  function openCreateForm() {
+    setShowCreateForm(true)
+    setFormError(null)
+    // Chỉ những đơn đã chuyển WAITING_PAYMENT mới đủ điều kiện lên hoá đơn.
+    fetchOrders()
+      .then((orders) => setWaitingOrders(orders.filter((o) => o.status === 'WAITING_PAYMENT')))
+      .catch((err) => setFormError(err instanceof Error ? err.message : 'Tải danh sách đơn hàng thất bại'))
   }
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleCreate(e: FormEvent) {
     e.preventDefault()
-    if (!selectedOrder) return
-    setError(null)
+    if (!orderId) {
+      setFormError('Vui lòng chọn đơn hàng')
+      return
+    }
+    setFormError(null)
     setSubmitting(true)
     try {
-      const invoice = await createInvoice({
-        orderId: selectedOrder.id,
+      await createInvoice({
+        orderId: Number(orderId),
         paymentMethod,
-        pointsToUse: Number(pointsToUse) || 0,
+        pointsToUse: Number(pointsToUse) || undefined,
       })
-      setResult(invoice)
+      setShowCreateForm(false)
+      setOrderId('')
+      setPointsToUse('0')
       load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Tạo hoá đơn thất bại')
+      setFormError(err instanceof Error ? err.message : 'Tạo hoá đơn thất bại')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const currentPoints = selectedOrder
-    ? customers.find((c) => c.id === selectedOrder.customerId)?.totalPoints ?? 0
-    : 0
-
   return (
     <section>
-      <h2>Hoá đơn thanh toán</h2>
-      <p className="muted">Danh sách đơn đang chờ thanh toán</p>
+      <PageHeader
+        title="Hoá đơn"
+        action={
+          canCreateInvoice ? (
+            <Button variant="primary" onClick={openCreateForm}>
+              <Plus className="h-4 w-4" />
+              Lập hoá đơn thanh toán
+            </Button>
+          ) : undefined
+        }
+      />
 
-      {error && !selectedOrder && <p className="error">{error}</p>}
+      <Card className="mb-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            load()
+          }}
+          className="flex flex-wrap items-end gap-4"
+        >
+          <Field label="Từ ngày" className="min-w-[160px]">
+            <input type="date" className={inputClass} value={fromDate} onChange={(e) => setFromDate(e.target.value)} required />
+          </Field>
+          <Field label="Đến ngày" className="min-w-[160px]">
+            <input type="date" className={inputClass} value={toDate} onChange={(e) => setToDate(e.target.value)} required />
+          </Field>
+          <Button type="submit" variant="secondary">
+            Lọc
+          </Button>
+        </form>
+      </Card>
+
+      {error && !showCreateForm && <ErrorBanner>{error}</ErrorBanner>}
+
       {loading ? (
-        <p className="loading">Đang tải...</p>
+        <LoadingBlock />
+      ) : invoices.length === 0 ? (
+        <EmptyState>Không có hoá đơn nào trong khoảng thời gian này.</EmptyState>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Mã đơn</th>
-              <th>Khách hàng</th>
-              <th>Biển số</th>
-              <th>Tổng tiền</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((o) => (
-              <tr key={o.id}>
-                <td>#{o.id}</td>
-                <td>{o.customerName}</td>
-                <td>{o.licensePlate}</td>
-                <td>{o.totalAmount.toLocaleString('vi-VN')}đ</td>
-                <td>
-                  <button type="button" className="btn-primary" onClick={() => openInvoiceForm(o)}>
-                    Thanh toán
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {orders.length === 0 && (
+        <div className={tableWrapClass}>
+          <table className={tableClass}>
+            <thead>
               <tr>
-                <td colSpan={5} className="muted">Không có đơn nào đang chờ thanh toán.</td>
+                <th className={thClass}>Mã HĐ</th>
+                <th className={thClass}>Đơn hàng</th>
+                <th className={thClass}>Khách hàng</th>
+                <th className={thClass}>Thu ngân</th>
+                <th className={thClass}>Tổng tiền</th>
+                <th className={thClass}>Điểm dùng</th>
+                <th className={thClass}>Điểm tích</th>
+                <th className={thClass}>Thanh toán</th>
+                <th className={thClass}></th>
+                <th className={thClass}>Thời gian</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {invoices.map((inv) => (
+                <tr key={inv.id} className={trHoverClass}>
+                  <td className={`${tdClass} tabular font-medium text-suds-700`}>
+                    <span className="flex items-center gap-1.5">
+                      <Receipt className="h-3.5 w-3.5" />#{inv.id}
+                    </span>
+                  </td>
+                  <td className={`${tdClass} tabular`}>#{inv.orderId}</td>
+                  <td className={tdClass}>{inv.customerName}</td>
+                  <td className={tdClass}>{inv.cashierName}</td>
+                  <td className={`${tdClass} tabular font-medium`}>{inv.total.toLocaleString('vi-VN')}đ</td>
+                  <td className={`${tdClass} tabular text-ink-muted`}>
+                    {inv.pointsUsed > 0 ? `-${inv.pointsDiscount.toLocaleString('vi-VN')}đ (${inv.pointsUsed} điểm)` : '—'}
+                  </td>
+                  <td className={tdClass}>
+                    {inv.pointsEarned > 0 ? (
+                      <Badge tone="success">
+                        <Star className="h-3 w-3" />+{inv.pointsEarned}
+                      </Badge>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className={tdClass}>{PAYMENT_METHOD_LABEL[inv.paymentMethod]}</td>
+                  <td className={tdClass}>
+                    <Link
+                      to={`/invoices/${inv.id}/print`}
+                      className="inline-flex items-center gap-1 text-sm font-medium text-suds-600 hover:text-suds-700"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      In hoá đơn
+                    </Link>
+                  </td>
+                  <td className={`${tdClass} tabular text-ink-muted`}>{new Date(inv.paidAt).toLocaleString('vi-VN')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {selectedOrder && (
-        <div className="modal-overlay" onClick={() => setSelectedOrder(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            {!result ? (
-              <>
-                <h3>Thanh toán đơn #{selectedOrder.id}</h3>
-                <p><strong>Khách hàng:</strong> {selectedOrder.customerName}</p>
-                <p><strong>Tổng tiền đơn:</strong> {selectedOrder.totalAmount.toLocaleString('vi-VN')}đ</p>
-                <p><strong>Điểm hiện có:</strong> {currentPoints}</p>
-
-                <form onSubmit={handleSubmit} className="form">
-                  <label>
-                    Hình thức thanh toán
-                    <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
-                      {PAYMENT_OPTIONS.map((p) => (
-                        <option key={p} value={p}>{PAYMENT_METHOD_LABEL[p]}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Số điểm muốn đổi (tối đa {currentPoints})
-                    <input
-                      type="number"
-                      min={0}
-                      max={currentPoints}
-                      value={pointsToUse}
-                      onChange={(e) => setPointsToUse(e.target.value)}
-                    />
-                  </label>
-                  {error && <p className="error">{error}</p>}
-                  <div className="form-row">
-                    <button type="submit" className="btn-primary" disabled={submitting}>
-                      {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
-                    </button>
-                    <button type="button" onClick={() => setSelectedOrder(null)}>Huỷ</button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <>
-                <h3>✅ Thanh toán thành công</h3>
-                <div className="invoice-summary">
-                  <p>Tạm tính: {result.subtotal.toLocaleString('vi-VN')}đ</p>
-                  {result.pointsUsed > 0 && (
-                    <p>Giảm giá ({result.pointsUsed} điểm): -{result.pointsDiscount.toLocaleString('vi-VN')}đ</p>
-                  )}
-                  <p className="invoice-total">Thực thu: {result.total.toLocaleString('vi-VN')}đ</p>
-                  <p className="muted">Điểm tích luỹ thêm: +{result.pointsEarned}</p>
-                </div>
-                <button type="button" className="btn-primary" onClick={() => setSelectedOrder(null)}>
-                  Đóng
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+      {showCreateForm && (
+        <Modal title="Lập hoá đơn thanh toán" onClose={() => setShowCreateForm(false)}>
+          <form onSubmit={handleCreate} className="flex flex-col gap-4">
+            <Field label="Đơn hàng chờ thanh toán">
+              <select className={selectClass} value={orderId} onChange={(e) => setOrderId(e.target.value)} required>
+                <option value="">-- Chọn đơn hàng --</option>
+                {waitingOrders.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    #{o.id} — {o.customerName} — {o.totalAmount.toLocaleString('vi-VN')}đ
+                  </option>
+                ))}
+              </select>
+              {waitingOrders.length === 0 && (
+                <p className="mt-1 text-xs text-ink-faint">Không có đơn hàng nào đang chờ thanh toán.</p>
+              )}
+            </Field>
+            <Field label="Hình thức thanh toán">
+              <select className={selectClass} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m} value={m}>
+                    {PAYMENT_METHOD_LABEL[m]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Số điểm khách muốn dùng (không bắt buộc)">
+              <input
+                type="number"
+                min={0}
+                className={inputClass}
+                value={pointsToUse}
+                onChange={(e) => setPointsToUse(e.target.value)}
+              />
+            </Field>
+            {formError && <ErrorBanner>{formError}</ErrorBanner>}
+            <div className="flex gap-2">
+              <Button type="submit" variant="primary" loading={submitting} className="flex-1">
+                Xác nhận thanh toán
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)}>
+                Huỷ
+              </Button>
+            </div>
+          </form>
+        </Modal>
       )}
     </section>
   )

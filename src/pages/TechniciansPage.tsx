@@ -1,12 +1,21 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Wrench, UserPlus, Clock } from 'lucide-react'
-import { fetchTechnicians, createTechnician, setTechnicianShift, setTechnicianOffDuty } from '../api/technicians'
+import { Wrench, UserPlus, Clock, Pencil, Trash2 } from 'lucide-react'
+import {
+  fetchTechnicians,
+  createTechnician,
+  updateTechnician,
+  deleteTechnician,
+  setTechnicianShift,
+  setTechnicianOffDuty,
+} from '../api/technicians'
+import { ApiError } from '../api/client'
 import type { Technician } from '../types'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { PageHeader, ErrorBanner, EmptyState, LoadingBlock } from '../components/ui/Misc'
 import { TECHNICIAN_STATUS_TONE } from '../components/ui/statusTone'
 import { inputClass, tableWrapClass, tableClass, thClass, tdClass, trHoverClass } from '../components/ui/styles'
@@ -26,6 +35,14 @@ export default function TechniciansPage() {
 
   const [shiftForm, setShiftForm] = useState<{ id: number; start: string; end: string } | null>(null)
   const [submittingShift, setSubmittingShift] = useState(false)
+
+  const [editing, setEditing] = useState<Technician | null>(null)
+  const [editName, setEditName] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  const [deleting, setDeleting] = useState<Technician | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deletingBusy, setDeletingBusy] = useState(false)
 
   function load() {
     setLoading(true)
@@ -77,6 +94,43 @@ export default function TechniciansPage() {
       load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cập nhật thất bại')
+    }
+  }
+
+  function openEdit(t: Technician) {
+    setEditing(t)
+    setEditName(t.name)
+  }
+
+  async function handleSaveEdit(e: FormEvent) {
+    e.preventDefault()
+    if (!editing) return
+    setError(null)
+    setSavingEdit(true)
+    try {
+      await updateTechnician(editing.id, { name: editName })
+      setEditing(null)
+      load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cập nhật thợ thất bại')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    setDeleteError(null)
+    setDeletingBusy(true)
+    try {
+      await deleteTechnician(deleting.id)
+      setDeleting(null)
+      load()
+    } catch (err) {
+      // 409: thợ còn đang được gán trong order_details - hiện lỗi ngay trong dialog xóa.
+      setDeleteError(err instanceof ApiError ? err.message : 'Xóa thợ thất bại')
+    } finally {
+      setDeletingBusy(false)
     }
   }
 
@@ -133,7 +187,11 @@ export default function TechniciansPage() {
                     </Badge>
                   </td>
                   <td className={tdClass}>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => openEdit(t)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                        Sửa
+                      </Button>
                       <Button
                         size="sm"
                         variant="secondary"
@@ -153,6 +211,18 @@ export default function TechniciansPage() {
                           Kết thúc ca
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-danger hover:bg-danger-bg"
+                        onClick={() => {
+                          setDeleting(t)
+                          setDeleteError(null)
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Xóa
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -193,6 +263,35 @@ export default function TechniciansPage() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {editing && (
+        <Modal title="Sửa thông tin thợ" onClose={() => setEditing(null)}>
+          <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
+            <Field label="Tên thợ">
+              <input className={inputClass} value={editName} onChange={(e) => setEditName(e.target.value)} required />
+            </Field>
+            <div className="flex gap-2">
+              <Button type="submit" variant="primary" loading={savingEdit} className="flex-1">
+                Lưu thay đổi
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
+                Huỷ
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Xóa thợ sửa xe?"
+          description={`Bạn sắp xóa thợ "${deleting.name}". Hành động này không thể hoàn tác.`}
+          loading={deletingBusy}
+          error={deleteError}
+          onConfirm={handleDelete}
+          onClose={() => setDeleting(null)}
+        />
       )}
     </section>
   )

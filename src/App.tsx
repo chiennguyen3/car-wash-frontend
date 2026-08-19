@@ -12,18 +12,37 @@ import ServicesPage from './pages/ServicesPage'
 import TechniciansPage from './pages/TechniciansPage'
 import OrdersPage from './pages/OrdersPage'
 import OrderDetailPage from './pages/OrderDetailPage'
+import ReportsPage from './pages/ReportsPage'
+import InventoryPage from './pages/InventoryPage'
+import InvoicesPage from './pages/InvoicesPage'
+import InvoicePrintPage from './pages/InvoicePrintPage'
 import { useAuth } from './context/AuthContext'
 
 function App() {
   const { user } = useAuth()
   const location = useLocation()
   const isLoginRoute = location.pathname === '/login'
-  const showSidebar = Boolean(user) && !isLoginRoute
+  const isPrintRoute = location.pathname.endsWith('/print')
+  const showSidebar = Boolean(user) && !isLoginRoute && !isPrintRoute
 
   return (
     <div className="min-h-screen bg-bg">
       {showSidebar && <Sidebar />}
       <main className={showSidebar ? 'md:pl-64' : ''}>
+        {isPrintRoute ? (
+          <Routes>
+            <Route
+              path="/invoices/:id/print"
+              element={
+                <ProtectedRoute>
+                  <RoleRoute allowedRoles={['ADMIN_CO_SO', 'THU_NGAN']}>
+                    <InvoicePrintPage />
+                  </RoleRoute>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        ) : (
         <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -105,10 +124,40 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* Các route Invoice/Inventory/Report... sẽ thêm ở bước sau */}
+            <Route
+              path="/inventory"
+              element={
+                <ProtectedRoute>
+                  <RoleRoute allowedRoles={['ADMIN_CO_SO', 'TIEP_DON']}>
+                    <InventoryPage />
+                  </RoleRoute>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/invoices"
+              element={
+                <ProtectedRoute>
+                  <RoleRoute allowedRoles={['ADMIN_CO_SO', 'THU_NGAN']}>
+                    <InvoicesPage />
+                  </RoleRoute>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <RoleRoute allowedRoles={['ADMIN_CO_SO', 'ADMIN_TONG']}>
+                    <ReportsPage />
+                  </RoleRoute>
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </div>
+        )}
       </main>
     </div>
   )

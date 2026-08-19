@@ -1,18 +1,23 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, ArrowRight, ClipboardList } from 'lucide-react'
+import { Plus, Search, ArrowRight, ClipboardList, UserPlus } from 'lucide-react'
 import { fetchOrders, createOrder } from '../api/orders'
 import { fetchCustomers } from '../api/customers'
-import { fetchVehiclesByCustomer } from '../api/vehicles'
+import { fetchVehiclesByCustomer, createVehicle } from '../api/vehicles'
 import { fetchWashServices } from '../api/services'
-import type { Order, Customer, Vehicle, WashService } from '../types'
-import { ORDER_STATUS_LABEL } from '../types'
+import type { Order, Customer, Vehicle, WashService, VehicleType } from '../types'
+import { ORDER_STATUS_LABEL, VEHICLE_TYPE_LABEL } from '../types'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
+import Combobox from '../components/ui/Combobox'
 import { PageHeader, ErrorBanner, EmptyState, LoadingBlock } from '../components/ui/Misc'
 import { ORDER_STATUS_TONE } from '../components/ui/statusTone'
 import { inputClass, tableWrapClass, tableClass, thClass, tdClass, trHoverClass } from '../components/ui/styles'
+
+const VEHICLE_TYPE_OPTIONS: { value: VehicleType; label: string }[] = (
+  Object.keys(VEHICLE_TYPE_LABEL) as VehicleType[]
+).map((v) => ({ value: v, label: VEHICLE_TYPE_LABEL[v] }))
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -31,6 +36,14 @@ export default function OrdersPage() {
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([])
 
   const [submitting, setSubmitting] = useState(false)
+
+  // ===== Thêm xe mới ngay trong modal, không cần thoát ra trang Khách hàng =====
+  const [showAddVehicle, setShowAddVehicle] = useState(false)
+  const [newLicensePlate, setNewLicensePlate] = useState('')
+  const [newVehicleType, setNewVehicleType] = useState<VehicleType | null>(null)
+  const [newBrand, setNewBrand] = useState('')
+  const [newModelName, setNewModelName] = useState('')
+  const [submittingVehicle, setSubmittingVehicle] = useState(false)
 
   function load() {
     setLoading(true)
@@ -52,7 +65,48 @@ export default function OrdersPage() {
   function handleSelectCustomer(customerId: number) {
     setSelectedCustomerId(customerId)
     setSelectedVehicleId(null)
+    setShowAddVehicle(false)
     fetchVehiclesByCustomer(customerId).then(setVehicles).catch((err) => setError(err.message))
+  }
+
+  function resetAddVehicleForm() {
+    setNewLicensePlate('')
+    setNewVehicleType(null)
+    setNewBrand('')
+    setNewModelName('')
+  }
+
+  async function handleCreateVehicleInline(e: FormEvent) {
+    e.preventDefault()
+    if (!selectedCustomerId) return
+    setError(null)
+
+    if (!newLicensePlate.trim() || !newVehicleType) {
+      setError('Vui lòng nhập biển số và chọn loại xe')
+      return
+    }
+
+    setSubmittingVehicle(true)
+    try {
+      const created = await createVehicle({
+        licensePlate: newLicensePlate.trim(),
+        vehicleType: newVehicleType,
+        brand: newBrand.trim() || undefined,
+        modelName: newModelName.trim() || undefined,
+        customerId: selectedCustomerId,
+      })
+      // Thêm ngay vào danh sách hiện có và tự động chọn luôn, không cần
+      // gọi lại API - tiết kiệm 1 lượt round-trip cho quầy tiếp đón.
+      setVehicles((prev) => [...prev, created])
+      setSelectedVehicleId(created.id)
+      setSelectedServiceIds([])
+      setShowAddVehicle(false)
+      resetAddVehicleForm()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Thêm xe thất bại')
+    } finally {
+      setSubmittingVehicle(false)
+    }
   }
 
   function toggleService(id: number) {
@@ -91,6 +145,8 @@ export default function OrdersPage() {
     setSelectedServiceIds([])
     setCustomerSearch('')
     setVehicles([])
+    setShowAddVehicle(false)
+    resetAddVehicleForm()
   }
 
   const filteredCustomers = customers.filter(
@@ -204,31 +260,104 @@ export default function OrdersPage() {
 
             {selectedCustomerId && (
               <div>
-                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-suds-100 text-[11px] text-suds-700">2</span>
-                  Chọn xe
-                </p>
-                <ul className="scrollbar-thin max-h-40 space-y-1 overflow-y-auto rounded-lg border border-border p-1.5">
-                  {vehicles.map((v) => (
-                    <li key={v.id}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedVehicleId(v.id)
-                          setSelectedServiceIds([])
-                        }}
-                        className={`w-full rounded-md px-2.5 py-2 text-left text-sm transition-colors ${
-                          selectedVehicleId === v.id ? 'bg-suds-50 text-suds-700' : 'hover:bg-surface-sunken'
-                        }`}
-                      >
-                        {v.licensePlate} ({v.brand} {v.modelName})
-                      </button>
-                    </li>
-                  ))}
-                  {vehicles.length === 0 && (
-                    <li className="px-2.5 py-2 text-sm text-ink-faint">Khách hàng chưa có xe nào.</li>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-suds-100 text-[11px] text-suds-700">2</span>
+                    Chọn xe
+                  </p>
+                  {!showAddVehicle && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddVehicle(true)}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-suds-600 hover:text-suds-700"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Thêm xe mới
+                    </button>
                   )}
-                </ul>
+                </div>
+
+                {!showAddVehicle && (
+                  <ul className="scrollbar-thin max-h-40 space-y-1 overflow-y-auto rounded-lg border border-border p-1.5">
+                    {vehicles.map((v) => (
+                      <li key={v.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedVehicleId(v.id)
+                            setSelectedServiceIds([])
+                          }}
+                          className={`w-full rounded-md px-2.5 py-2 text-left text-sm transition-colors ${
+                            selectedVehicleId === v.id ? 'bg-suds-50 text-suds-700' : 'hover:bg-surface-sunken'
+                          }`}
+                        >
+                          {v.licensePlate} ({v.brand} {v.modelName})
+                        </button>
+                      </li>
+                    ))}
+                    {vehicles.length === 0 && (
+                      <li className="px-2.5 py-2 text-sm text-ink-faint">
+                        Khách hàng chưa có xe nào — bấm "Thêm xe mới" ở trên.
+                      </li>
+                    )}
+                  </ul>
+                )}
+
+                {showAddVehicle && (
+                  <div className="space-y-3 rounded-lg border border-border p-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="mb-1 block text-xs font-medium text-ink-muted">Biển số</label>
+                        <input
+                          className={inputClass}
+                          placeholder="VD: 51A-123.45"
+                          value={newLicensePlate}
+                          onChange={(e) => setNewLicensePlate(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="mb-1 block text-xs font-medium text-ink-muted">Loại xe</label>
+                        <Combobox
+                          options={VEHICLE_TYPE_OPTIONS}
+                          value={newVehicleType}
+                          onChange={setNewVehicleType}
+                          placeholder="Chọn loại xe..."
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-ink-muted">Hãng xe</label>
+                        <input className={inputClass} value={newBrand} onChange={(e) => setNewBrand(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-ink-muted">Dòng xe</label>
+                        <input className={inputClass} value={newModelName} onChange={(e) => setNewModelName(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        loading={submittingVehicle}
+                        onClick={handleCreateVehicleInline}
+                      >
+                        {submittingVehicle ? 'Đang thêm...' : 'Lưu xe & chọn'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          setShowAddVehicle(false)
+                          resetAddVehicleForm()
+                        }}
+                      >
+                        Huỷ
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

@@ -1,11 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Building2, Plus } from 'lucide-react'
-import { fetchBranches, createBranch, updateBranchStatus } from '../api/branches'
+import { Building2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { fetchBranches, createBranch, updateBranch, deleteBranch, updateBranchStatus } from '../api/branches'
+import { ApiError } from '../api/client'
 import type { Branch } from '../types'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Badge from '../components/ui/Badge'
+import Modal from '../components/ui/Modal'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { PageHeader, ErrorBanner, EmptyState, LoadingBlock } from '../components/ui/Misc'
 import { ACTIVE_STATUS_TONE } from '../components/ui/statusTone'
 import { inputClass, tableWrapClass, tableClass, thClass, tdClass, trHoverClass } from '../components/ui/styles'
@@ -19,6 +22,16 @@ export default function BranchesPage() {
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const [editing, setEditing] = useState<Branch | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editAddress, setEditAddress] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  const [deleting, setDeleting] = useState<Branch | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deletingBusy, setDeletingBusy] = useState(false)
 
   function load() {
     setLoading(true)
@@ -54,6 +67,49 @@ export default function BranchesPage() {
       load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cập nhật trạng thái thất bại')
+    }
+  }
+
+  function openEdit(branch: Branch) {
+    setEditing(branch)
+    setEditName(branch.name)
+    setEditAddress(branch.address ?? '')
+    setEditPhone(branch.phone ?? '')
+  }
+
+  async function handleSaveEdit(e: FormEvent) {
+    e.preventDefault()
+    if (!editing) return
+    setError(null)
+    setSavingEdit(true)
+    try {
+      await updateBranch(editing.id, {
+        name: editName,
+        address: editAddress || undefined,
+        phone: editPhone || undefined,
+      })
+      setEditing(null)
+      load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cập nhật chi nhánh thất bại')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    setDeleteError(null)
+    setDeletingBusy(true)
+    try {
+      await deleteBranch(deleting.id)
+      setDeleting(null)
+      load()
+    } catch (err) {
+      // 409: chi nhánh còn dữ liệu liên quan (user/order) - hiện lỗi ngay trong dialog xóa.
+      setDeleteError(err instanceof ApiError ? err.message : 'Xóa chi nhánh thất bại')
+    } finally {
+      setDeletingBusy(false)
     }
   }
 
@@ -116,15 +172,68 @@ export default function BranchesPage() {
                     </Badge>
                   </td>
                   <td className={tdClass}>
-                    <Button size="sm" variant="secondary" onClick={() => handleToggleStatus(b)}>
-                      {b.status === 'ACTIVE' ? 'Ngừng hoạt động' : 'Kích hoạt lại'}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => openEdit(b)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                        Sửa
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => handleToggleStatus(b)}>
+                        {b.status === 'ACTIVE' ? 'Ngừng hoạt động' : 'Kích hoạt lại'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-danger hover:bg-danger-bg"
+                        onClick={() => {
+                          setDeleting(b)
+                          setDeleteError(null)
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Xóa
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {editing && (
+        <Modal title="Sửa chi nhánh" onClose={() => setEditing(null)}>
+          <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
+            <Field label="Tên chi nhánh">
+              <input className={inputClass} value={editName} onChange={(e) => setEditName(e.target.value)} required />
+            </Field>
+            <Field label="Địa chỉ">
+              <input className={inputClass} value={editAddress} onChange={(e) => setEditAddress(e.target.value)} />
+            </Field>
+            <Field label="Điện thoại">
+              <input className={inputClass} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+            </Field>
+            <div className="flex gap-2">
+              <Button type="submit" variant="primary" loading={savingEdit} className="flex-1">
+                Lưu thay đổi
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
+                Huỷ
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Xóa chi nhánh?"
+          description={`Bạn sắp xóa chi nhánh "${deleting.name}". Hành động này không thể hoàn tác.`}
+          loading={deletingBusy}
+          error={deleteError}
+          onConfirm={handleDelete}
+          onClose={() => setDeleting(null)}
+        />
       )}
     </section>
   )

@@ -1,6 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Package, Plus, ArrowDownToLine, ArrowUpFromLine, History, AlertTriangle } from 'lucide-react'
 import { fetchInventory, createInventoryItem, stockIn, stockOut, fetchInventoryTransactions } from '../api/inventory'
 import type { InventoryItem, InventoryTransaction } from '../types'
+import Card from '../components/ui/Card'
+import Button from '../components/ui/Button'
+import Field from '../components/ui/Field'
+import Badge from '../components/ui/Badge'
+import Modal from '../components/ui/Modal'
+import { PageHeader, ErrorBanner, EmptyState, LoadingBlock } from '../components/ui/Misc'
+import { inputClass, tableWrapClass, tableClass, thClass, tdClass, trHoverClass } from '../components/ui/styles'
+
+type StockAction = { item: InventoryItem; direction: 'IN' | 'OUT' }
 
 export default function InventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([])
@@ -10,15 +20,17 @@ export default function InventoryPage() {
   const [name, setName] = useState('')
   const [quantity, setQuantity] = useState('0')
   const [unitPrice, setUnitPrice] = useState('')
-  const [minQuantityAlert, setMinQuantityAlert] = useState('10')
-  const [submittingCreate, setSubmittingCreate] = useState(false)
+  const [minQuantityAlert, setMinQuantityAlert] = useState('5')
+  const [submitting, setSubmitting] = useState(false)
 
-  const [stockForm, setStockForm] = useState<{ item: InventoryItem; type: 'in' | 'out' } | null>(null)
-  const [stockQuantity, setStockQuantity] = useState('')
-  const [submittingStock, setSubmittingStock] = useState(false)
+  const [stockAction, setStockAction] = useState<StockAction | null>(null)
+  const [stockQuantity, setStockQuantity] = useState('1')
+  const [stockOrderId, setStockOrderId] = useState('')
+  const [stockError, setStockError] = useState<string | null>(null)
+  const [stockSubmitting, setStockSubmitting] = useState(false)
 
-  const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null)
-  const [history, setHistory] = useState<InventoryTransaction[]>([])
+  const [history, setHistory] = useState<{ item: InventoryItem; transactions: InventoryTransaction[] } | null>(null)
+  const [loadingHistory, setLoadingHistory] = useState(false)
 
   function load() {
     setLoading(true)
@@ -33,7 +45,7 @@ export default function InventoryPage() {
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
     setError(null)
-    setSubmittingCreate(true)
+    setSubmitting(true)
     try {
       await createInventoryItem({
         name,
@@ -44,162 +56,239 @@ export default function InventoryPage() {
       setName('')
       setQuantity('0')
       setUnitPrice('')
-      setMinQuantityAlert('10')
+      setMinQuantityAlert('5')
       load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Tạo mặt hàng thất bại')
+      setError(err instanceof Error ? err.message : 'Tạo vật tư thất bại')
     } finally {
-      setSubmittingCreate(false)
+      setSubmitting(false)
     }
   }
 
   async function handleStockSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!stockForm) return
-    setError(null)
-    setSubmittingStock(true)
+    if (!stockAction) return
+    setStockError(null)
+    setStockSubmitting(true)
     try {
-      if (stockForm.type === 'in') {
-        await stockIn(stockForm.item.id, Number(stockQuantity))
+      if (stockAction.direction === 'IN') {
+        await stockIn(stockAction.item.id, Number(stockQuantity))
       } else {
-        await stockOut(stockForm.item.id, Number(stockQuantity))
+        await stockOut(stockAction.item.id, Number(stockQuantity), stockOrderId ? Number(stockOrderId) : undefined)
       }
-      setStockForm(null)
-      setStockQuantity('')
+      setStockAction(null)
+      setStockQuantity('1')
+      setStockOrderId('')
       load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Cập nhật kho thất bại')
+      // Xuất kho vượt tồn kho hiện có -> BE trả lỗi nghiệp vụ, hiện ngay trong modal.
+      setStockError(err instanceof Error ? err.message : 'Cập nhật tồn kho thất bại')
     } finally {
-      setSubmittingStock(false)
+      setStockSubmitting(false)
     }
   }
 
   function openHistory(item: InventoryItem) {
-    setHistoryItem(item)
-    fetchInventoryTransactions(item.id).then(setHistory).catch((err) => setError(err.message))
+    setLoadingHistory(true)
+    setHistory({ item, transactions: [] })
+    fetchInventoryTransactions(item.id)
+      .then((transactions) => setHistory({ item, transactions }))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Tải lịch sử thất bại'))
+      .finally(() => setLoadingHistory(false))
   }
 
   return (
     <section>
-      <h2>Tồn kho linh kiện</h2>
+      <PageHeader title="Quản lý kho" />
 
-      <form onSubmit={handleCreate} className="form form-inline">
-        <label>
-          Tên linh kiện
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label>
-          Số lượng ban đầu
-          <input type="number" min={0} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-        </label>
-        <label>
-          Đơn giá
-          <input type="number" min={0} value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} required />
-        </label>
-        <label>
-          Ngưỡng cảnh báo
-          <input type="number" min={0} value={minQuantityAlert} onChange={(e) => setMinQuantityAlert(e.target.value)} />
-        </label>
-        <button type="submit" className="btn-primary" disabled={submittingCreate}>
-          {submittingCreate ? 'Đang tạo...' : 'Thêm mặt hàng'}
-        </button>
-      </form>
+      <Card className="mb-6">
+        <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-4">
+          <Field label="Tên vật tư" className="min-w-[200px] flex-1">
+            <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} required />
+          </Field>
+          <Field label="Tồn kho ban đầu" className="min-w-[140px]">
+            <input type="number" min={0} className={inputClass} value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
+          </Field>
+          <Field label="Đơn giá" className="min-w-[140px]">
+            <input type="number" min={0} className={inputClass} value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} required />
+          </Field>
+          <Field label="Ngưỡng cảnh báo thấp" className="min-w-[160px]">
+            <input
+              type="number"
+              min={0}
+              className={inputClass}
+              value={minQuantityAlert}
+              onChange={(e) => setMinQuantityAlert(e.target.value)}
+              required
+            />
+          </Field>
+          <Button type="submit" variant="primary" loading={submitting}>
+            <Plus className="h-4 w-4" />
+            {submitting ? 'Đang tạo...' : 'Thêm vật tư'}
+          </Button>
+        </form>
+      </Card>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+
       {loading ? (
-        <p className="loading">Đang tải...</p>
+        <LoadingBlock />
+      ) : items.length === 0 ? (
+        <EmptyState>Chưa có vật tư nào trong kho.</EmptyState>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Tên</th>
-              <th>Tồn kho</th>
-              <th>Đơn giá</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((it) => (
-              <tr key={it.id}>
-                <td>
-                  {it.name}
-                  {it.lowStock && <span className="badge badge-warning" style={{ marginLeft: 8 }}>Sắp hết</span>}
-                </td>
-                <td>{it.quantity}</td>
-                <td>{it.unitPrice.toLocaleString('vi-VN')}đ</td>
-                <td className="actions">
-                  <button type="button" onClick={() => setStockForm({ item: it, type: 'in' })}>Nhập kho</button>
-                  <button type="button" onClick={() => setStockForm({ item: it, type: 'out' })}>Xuất kho</button>
-                  <button type="button" onClick={() => openHistory(it)}>Lịch sử</button>
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
+        <div className={tableWrapClass}>
+          <table className={tableClass}>
+            <thead>
               <tr>
-                <td colSpan={4} className="muted">Chưa có linh kiện nào.</td>
+                <th className={thClass}>Tên vật tư</th>
+                <th className={thClass}>Tồn kho</th>
+                <th className={thClass}>Đơn giá</th>
+                <th className={thClass}>Ngưỡng cảnh báo</th>
+                <th className={thClass}></th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} className={trHoverClass}>
+                  <td className={`${tdClass} font-medium`}>
+                    <span className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-ink-faint" />
+                      {item.name}
+                    </span>
+                  </td>
+                  <td className={tdClass}>
+                    <span className="tabular font-medium">{item.quantity}</span>
+                    {item.lowStock && (
+                      <Badge tone="danger">
+                        <AlertTriangle className="h-3 w-3" />
+                        Sắp hết
+                      </Badge>
+                    )}
+                  </td>
+                  <td className={`${tdClass} tabular`}>{item.unitPrice.toLocaleString('vi-VN')}đ</td>
+                  <td className={`${tdClass} tabular text-ink-muted`}>{item.minQuantityAlert}</td>
+                  <td className={tdClass}>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setStockAction({ item, direction: 'IN' })
+                          setStockError(null)
+                        }}
+                      >
+                        <ArrowDownToLine className="h-3.5 w-3.5" />
+                        Nhập
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setStockAction({ item, direction: 'OUT' })
+                          setStockError(null)
+                        }}
+                      >
+                        <ArrowUpFromLine className="h-3.5 w-3.5" />
+                        Xuất
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => openHistory(item)}>
+                        <History className="h-3.5 w-3.5" />
+                        Lịch sử
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {stockForm && (
-        <div className="modal-overlay" onClick={() => setStockForm(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{stockForm.type === 'in' ? 'Nhập kho' : 'Xuất kho'}: {stockForm.item.name}</h3>
-            <p className="muted">Tồn kho hiện tại: {stockForm.item.quantity}</p>
-            <form onSubmit={handleStockSubmit} className="form">
-              <label>
-                Số lượng
+      {stockAction && (
+        <Modal
+          title={stockAction.direction === 'IN' ? 'Nhập kho' : 'Xuất kho'}
+          onClose={() => setStockAction(null)}
+        >
+          <form onSubmit={handleStockSubmit} className="flex flex-col gap-4">
+            <p className="text-sm text-ink-muted">
+              Vật tư: <span className="font-medium text-ink">{stockAction.item.name}</span> — tồn hiện tại:{' '}
+              <span className="tabular font-medium text-ink">{stockAction.item.quantity}</span>
+            </p>
+            <Field label="Số lượng">
+              <input
+                type="number"
+                min={1}
+                className={inputClass}
+                value={stockQuantity}
+                onChange={(e) => setStockQuantity(e.target.value)}
+                required
+              />
+            </Field>
+            {stockAction.direction === 'OUT' && (
+              <Field label="Mã đơn hàng liên quan (không bắt buộc)">
                 <input
                   type="number"
-                  min={1}
-                  value={stockQuantity}
-                  onChange={(e) => setStockQuantity(e.target.value)}
-                  required
+                  className={inputClass}
+                  value={stockOrderId}
+                  onChange={(e) => setStockOrderId(e.target.value)}
+                  placeholder="VD: 12"
                 />
-              </label>
-              {error && <p className="error">{error}</p>}
-              <div className="form-row">
-                <button type="submit" className="btn-primary" disabled={submittingStock}>
-                  {submittingStock ? 'Đang lưu...' : 'Xác nhận'}
-                </button>
-                <button type="button" onClick={() => setStockForm(null)}>Huỷ</button>
-              </div>
-            </form>
-          </div>
-        </div>
+              </Field>
+            )}
+            {stockError && <ErrorBanner>{stockError}</ErrorBanner>}
+            <div className="flex gap-2">
+              <Button type="submit" variant="primary" loading={stockSubmitting} className="flex-1">
+                Xác nhận
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setStockAction(null)}>
+                Huỷ
+              </Button>
+            </div>
+          </form>
+        </Modal>
       )}
 
-      {historyItem && (
-        <div className="modal-overlay" onClick={() => setHistoryItem(null)}>
-          <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
-            <h3>Lịch sử: {historyItem.name}</h3>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Loại</th>
-                  <th>SL</th>
-                  <th>Tồn sau</th>
-                  <th>Người thực hiện</th>
-                  <th>Thời gian</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((h) => (
-                  <tr key={h.id}>
-                    <td>{h.type === 'NHAP' ? 'Nhập' : 'Xuất'}</td>
-                    <td>{h.quantity}</td>
-                    <td>{h.quantityAfter}</td>
-                    <td>{h.createdByName}</td>
-                    <td>{new Date(h.createdAt).toLocaleString('vi-VN')}</td>
+      {history && (
+        <Modal title={`Lịch sử: ${history.item.name}`} onClose={() => setHistory(null)} size="lg">
+          {loadingHistory ? (
+            <LoadingBlock />
+          ) : history.transactions.length === 0 ? (
+            <EmptyState>Chưa có giao dịch nào.</EmptyState>
+          ) : (
+            <div className={tableWrapClass}>
+              <table className={tableClass}>
+                <thead>
+                  <tr>
+                    <th className={thClass}>Loại</th>
+                    <th className={thClass}>Số lượng</th>
+                    <th className={thClass}>Tồn sau GD</th>
+                    <th className={thClass}>Đơn hàng</th>
+                    <th className={thClass}>Người thực hiện</th>
+                    <th className={thClass}>Thời gian</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <button type="button" onClick={() => setHistoryItem(null)} style={{ marginTop: 12 }}>Đóng</button>
-          </div>
-        </div>
+                </thead>
+                <tbody>
+                  {history.transactions.map((t) => (
+                    <tr key={t.id} className={trHoverClass}>
+                      <td className={tdClass}>
+                        <Badge tone={t.type === 'NHAP' ? 'success' : 'warning'}>
+                          {t.type === 'NHAP' ? 'Nhập' : 'Xuất'}
+                        </Badge>
+                      </td>
+                      <td className={`${tdClass} tabular`}>{t.quantity}</td>
+                      <td className={`${tdClass} tabular`}>{t.quantityAfter}</td>
+                      <td className={`${tdClass} tabular`}>{t.orderId ?? '—'}</td>
+                      <td className={tdClass}>{t.createdByName}</td>
+                      <td className={`${tdClass} tabular text-ink-muted`}>
+                        {new Date(t.createdAt).toLocaleString('vi-VN')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Modal>
       )}
     </section>
   )
